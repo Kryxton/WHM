@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Puzzle Game</title>
+  <!-- Google Font: Oswald -->
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* Global Styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Oswald', sans-serif;
+      background-color: #ffffff;
+      color: #333;
+      text-align: center;
+      padding: 20px;
+      font-size: 26px;
+    }
+    h1 {
+      margin-bottom: 20px;
+      font-size: 3.5em;
+      color: #ff69b4;
+    }
+    /* Back to Homepage Button */
+    #homepageButton {
+      margin-bottom: 20px;
+      padding: 10px 20px;
+      font-size: 1.5em;
+      background: linear-gradient(145deg, #ff69b4, #ff1493);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+    }
+    #homepageButton:hover {
+      background: linear-gradient(145deg, #ff1493, #ff69b4);
+    }
+    /* Puzzle Container – dimensions will be set dynamically */
+    #puzzleContainer {
+      margin: 20px auto;
+      width: 700px;
+      border: 4px solid #ff69b4;
+      position: relative;
+      display: grid;
+    }
+    .cell {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    .piece {
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+      transition: box-shadow 0.2s ease;
+    }
+    .selected {
+      box-shadow: 0 0 0 5px #ff69b4;
+    }
+    /* Reference Image */
+    #puzzleReference {
+      margin: 20px auto;
+      border: 4px solid #ff69b4;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(255,105,180,0.5);
+      display: block;
+    }
+    /* Skip Button */
+    #skipButton {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1.5em;
+      background-color: #ff69b4;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #skipButton:hover {
+      background-color: #e058a0;
+    }
+    /* Congratulations Overlay */
+    #congratsOverlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      font-size: 3em;
+      text-align: center;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+    }
+    #congratsOverlay.animate {
+      display: flex;
+      animation: fadeInScale 1s forwards;
+    }
+    @keyframes fadeInScale {
+      from { opacity: 0; transform: scale(0.5); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <h1>Puzzle Game</h1>
+  <!-- Back to Homepage Button -->
+  <button id="homepageButton" onclick="goHome()">Back to Homepage</button>
+  <!-- Puzzle Grid Container -->
+  <div id="puzzleContainer"></div>
+  <!-- Reference Image Displayed Below -->
+  <img id="puzzleReference" src="" alt="Puzzle Reference">
+  <!-- Skip Button -->
+  <button id="skipButton" onclick="skipLevel()">Skip to Next Level</button>
+  <!-- Congratulations Overlay -->
+  <div id="congratsOverlay">Congratulations!</div>
+
+  <script>
+    // Function to navigate back to the homepage
+    function goHome() {
+      window.location.href = "index.html"; // Adjust this URL as needed
+    }
+    
+    // Global Configuration
+    const fixedWidth = 700; // Container width in pixels
+    const columns = 5;      // Fixed number of columns
+    let currentLevel = 0;
+    let selectedCell = null; // To track the currently selected cell
+    const levels = [
+      "puzzle1.jpeg",
+      "puzzle2.jpeg",
+      "puzzle3.jpeg",
+      "puzzle4.jpeg",
+      "puzzle5.jpeg",
+      "puzzle6.jpeg"
+    ];
+    
+    // Initialize puzzle for current level (dynamically computes rows)
+    function initPuzzle() {
+      // Preload the current level image to get its natural dimensions
+      const img = new Image();
+      img.src = levels[currentLevel];
+      img.onload = function() {
+        const naturalWidth = img.naturalWidth;
+        const naturalHeight = img.naturalHeight;
+        // Compute container height to preserve the image’s aspect ratio
+        const containerHeight = fixedWidth * (naturalHeight / naturalWidth);
+        // Compute the number of rows based on a fixed number of columns
+        const rows = Math.round(columns * (naturalHeight / naturalWidth));
+        const totalPieces = columns * rows;
+        
+        // Set container dimensions and grid template
+        const container = document.getElementById("puzzleContainer");
+        container.style.width = fixedWidth + "px";
+        container.style.height = containerHeight + "px";
+        container.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+        container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+        container.innerHTML = ""; // Clear previous puzzle
+        
+        // Update the reference image to match container dimensions
+        const refImg = document.getElementById("puzzleReference");
+        refImg.src = levels[currentLevel];
+        refImg.style.width = fixedWidth + "px";
+        refImg.style.height = containerHeight + "px";
+        
+        // Create a shuffled order of piece indices
+        let order = [];
+        for (let i = 0; i < totalPieces; i++) {
+          order.push(i);
+        }
+        order = shuffle(order);
+        
+        // Create each cell and its puzzle piece
+        for (let i = 0; i < totalPieces; i++) {
+          const cell = document.createElement("div");
+          cell.classList.add("cell");
+          cell.dataset.cellIndex = i;
+          const piece = document.createElement("div");
+          piece.classList.add("piece");
+          piece.dataset.index = order[i];
+          // Compute background-position based on the shuffled index
+          const correctRow = Math.floor(order[i] / columns);
+          const correctCol = order[i] % columns;
+          piece.style.backgroundImage = `url(${levels[currentLevel]})`;
+          piece.style.backgroundSize = `${fixedWidth}px ${containerHeight}px`;
+          piece.style.backgroundPosition = `-${correctCol * (fixedWidth / columns)}px -${correctRow * (containerHeight / rows)}px`;
+          
+          // When the cell is clicked, handle selection and swapping
+          cell.addEventListener("click", function() {
+            onCellClick(cell);
+          });
+          cell.appendChild(piece);
+          container.appendChild(cell);
+        }
+        selectedCell = null;
+      };
+    }
+    
+    // Fisher–Yates shuffle
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+    
+    // Handle cell clicks to select and swap pieces
+    function onCellClick(cell) {
+      if (!selectedCell) {
+        selectedCell = cell;
+        cell.querySelector(".piece").classList.add("selected");
+      } else {
+        if (selectedCell === cell) {
+          selectedCell.querySelector(".piece").classList.remove("selected");
+          selectedCell = null;
+          return;
+        }
+        swapPieces(selectedCell, cell);
+        selectedCell.querySelector(".piece").classList.remove("selected");
+        selectedCell = null;
+        if (checkSolved()) {
+          levelCompleted();
+        }
+      }
+    }
+    
+    // Swap the puzzle pieces between two cells
+    function swapPieces(cellA, cellB) {
+      const pieceA = cellA.querySelector(".piece");
+      const pieceB = cellB.querySelector(".piece");
+      cellA.removeChild(pieceA);
+      cellB.removeChild(pieceB);
+      cellA.appendChild(pieceB);
+      cellB.appendChild(pieceA);
+    }
+    
+    // Check if the puzzle is solved by verifying each cell’s piece index equals its cell index
+    function checkSolved() {
+      const cells = document.querySelectorAll("#puzzleContainer .cell");
+      for (let cell of cells) {
+        const correctIndex = Number(cell.dataset.cellIndex);
+        const piece = cell.querySelector(".piece");
+        const pieceIndex = Number(piece.dataset.index);
+        if (pieceIndex !== correctIndex) {
+          return false;
+        }
+      }
+      return true;
+    }
+    
+    // When the puzzle is solved, show a congratulatory overlay then load the next level
+    function levelCompleted() {
+      const overlay = document.getElementById("congratsOverlay");
+      overlay.classList.add("animate");
+      setTimeout(() => {
+        overlay.classList.remove("animate");
+        overlay.style.display = "none";
+        currentLevel++;
+        if (currentLevel < levels.length) {
+          initPuzzle();
+        } else {
+          alert("Congratulations! You completed all levels!");
+        }
+      }, 2000);
+    }
+    
+    // Skip to the next level without solving the current one
+    function skipLevel() {
+      currentLevel++;
+      if (currentLevel < levels.length) {
+        initPuzzle();
+      } else {
+        alert("Congratulations! You completed all levels!");
+      }
+    }
+    
+    window.onload = function() {
+      initPuzzle();
+    };
+  </script>
+</body>
+</html>
